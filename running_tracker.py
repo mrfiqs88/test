@@ -1,52 +1,80 @@
-"""
-running_tracker.py
-A simple command-line running tracker that logs runs to a CSV file.
-"""
-
+import time
+import math
 import csv
 from datetime import datetime
 
-FILE_NAME = "runs.csv"
+# Function to calculate distance (in km) using steps and stride length
+def calculate_distance(steps, stride_length_m=0.78):
+    # stride length default = 0.78m (average adult)
+    distance_m = steps * stride_length_m
+    return distance_m / 1000  # convert to kilometers
 
-def log_run(distance_km, time_minutes):
-    """Logs a run to the CSV file."""
-    pace = time_minutes / distance_km  # minutes per km
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+# Function to calculate average speed
+def calculate_speed(distance_km, duration_sec):
+    if duration_sec == 0:
+        return 0
+    return distance_km / (duration_sec / 3600)  # km/h
 
-    with open(FILE_NAME, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([now, distance_km, time_minutes, round(pace, 2)])
+# Main tracker class
+class RunningTracker:
+    def __init__(self):
+        self.start_time = None
+        self.end_time = None
+        self.steps = 0
 
-    print(f"✅ Run logged: {distance_km} km in {time_minutes} min (pace: {round(pace, 2)} min/km)")
+    def start_run(self):
+        input("Press ENTER to start your run...")
+        self.start_time = time.time()
+        print("🏃 Run started! Type 'stop' to finish.")
+        while True:
+            cmd = input("Type 'step' to log a step or 'stop' to finish: ").lower()
+            if cmd == "step":
+                self.steps += 1
+            elif cmd == "stop":
+                self.end_run()
+                break
+            else:
+                print("Invalid input, use 'step' or 'stop'.")
 
-def view_runs():
-    """Displays all logged runs."""
-    try:
-        with open(FILE_NAME, mode="r") as file:
-            reader = csv.reader(file)
-            print("\n📊 Your Running Log:")
-            print("-" * 40)
-            for row in reader:
-                print(f"Date: {row[0]}, Distance: {row[1]} km, Time: {row[2]} min, Pace: {row[3]} min/km")
-    except FileNotFoundError:
-        print("⚠️ No runs logged yet!")
+    def end_run(self):
+        self.end_time = time.time()
+        duration = self.end_time - self.start_time
+        distance_km = calculate_distance(self.steps)
+        speed_kmh = calculate_speed(distance_km, duration)
 
-def main():
-    print("🏃 Running Tracker 🏃")
-    print("1. Log a new run")
-    print("2. View run history")
-    print("3. Exit")
+        print("\n✅ Run Summary:")
+        print(f"🕒 Duration: {duration:.2f} seconds")
+        print(f"🚶 Steps: {self.steps}")
+        print(f"📏 Distance: {distance_km:.3f} km")
+        print(f"⚡ Avg Speed: {speed_kmh:.2f} km/h")
 
-    choice = input("Choose an option: ")
+        self.save_run(duration, distance_km, speed_kmh)
+        print("\nRun saved to runs.csv!")
 
-    if choice == "1":
-        distance = float(input("Enter distance (km): "))
-        time = float(input("Enter time (minutes): "))
-        log_run(distance, time)
-    elif choice == "2":
-        view_runs()
-    else:
-        print("Goodbye!")
+    def save_run(self, duration, distance, speed):
+        filename = "runs.csv"
+        fieldnames = ["date", "duration_sec", "steps", "distance_km", "avg_speed_kmh"]
 
+        # Create file with headers if it doesn't exist
+        try:
+            with open(filename, 'x', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+        except FileExistsError:
+            pass
+
+        # Save run data
+        with open(filename, 'a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writerow({
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "duration_sec": round(duration, 2),
+                "steps": self.steps,
+                "distance_km": round(distance, 3),
+                "avg_speed_kmh": round(speed, 2)
+            })
+
+# Run the tracker
 if __name__ == "__main__":
-    main()
+    tracker = RunningTracker()
+    tracker.start_run()
